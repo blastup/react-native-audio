@@ -9,7 +9,9 @@ var React, {NativeModules, NativeAppEventEmitter, DeviceEventEmitter} = require(
 
 var AudioPlayerManager = NativeModules.AudioPlayerManager;
 var AudioRecorderManager = NativeModules.AudioRecorderManager;
-AudioPlayerManager.init(); 
+
+AudioPlayerManager.initAudioManager();
+
 var AudioPlayer = {
   prepare: function(path){
     AudioPlayerManager.prepare(path);

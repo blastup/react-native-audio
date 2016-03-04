@@ -24,12 +24,11 @@ NSString *const AudioPlayerEventFinished = @"playerFinished";
     int _progressUpdateInterval;
     NSDate *_prevProgressUpdateTime;
     NSURL *_audioFileURL;
+
 }
 
 @synthesize bridge = _bridge;
-- (void) initAudioManager {
-    preparedAudios = [[NSMutableArray alloc]init];
-}
+
 
 RCT_EXPORT_MODULE();
 
@@ -83,7 +82,13 @@ RCT_EXPORT_MODULE();
 }
 RCT_EXPORT_METHOD(prepare:(NSString *)path)
 {
+    //TODO: implement
 }
+
+RCT_EXPORT_METHOD(initAudioManager) {
+  preparedAudios = [[NSMutableArray alloc]init];
+}
+
 
 RCT_EXPORT_METHOD(play:(NSString *)path)
 {
@@ -98,7 +103,6 @@ RCT_EXPORT_METHOD(play:(NSString *)path)
         }
     }
     _audioFileURL = [NSURL fileURLWithPath:audioFilePath];
-    
     _audioPlayer = [[AVAudioPlayer alloc]
                     initWithContentsOfURL:_audioFileURL
                     error:&error];
