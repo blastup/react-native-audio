@@ -16,132 +16,143 @@ NSString *const AudioPlayerEventProgress = @"playerProgress";
 NSString *const AudioPlayerEventFinished = @"playerFinished";
 
 @implementation AudioPlayerManager {
-
-  AVAudioPlayer *_audioPlayer;
-
-  NSTimeInterval _currentTime;
-  NSTimeInterval _currentDuration;
-  id _progressUpdateTimer;
-  int _progressUpdateInterval;
-  NSDate *_prevProgressUpdateTime;
-  NSURL *_audioFileURL;
+    AVAudioPlayer *_audioPlayer;
+    NSTimeInterval _currentTime;
+    NSMutableArray *preparedAudios;
+    NSTimeInterval _currentDuration;
+    id _progressUpdateTimer;
+    int _progressUpdateInterval;
+    NSDate *_prevProgressUpdateTime;
+    NSURL *_audioFileURL;
 }
 
 @synthesize bridge = _bridge;
+- (void) initAudioManager {
+    preparedAudios = [[NSMutableArray alloc]init];
+}
 
 RCT_EXPORT_MODULE();
 
 - (void)sendProgressUpdate {
-  if (_audioPlayer && _audioPlayer.playing) {
-    _currentTime = _audioPlayer.currentTime;
-    _currentDuration = _audioPlayer.duration;
-  }
-
-  // If audioplayer stopped, reset current time to 0
-  if (_audioPlayer && !_audioPlayer.playing) {
-    _currentTime = 0;
-  }
-
-  if (_prevProgressUpdateTime == nil ||
-   (([_prevProgressUpdateTime timeIntervalSinceNow] * -1000.0) >= _progressUpdateInterval)) {
-      [_bridge.eventDispatcher sendDeviceEventWithName:AudioPlayerEventProgress body:@{
-      @"currentTime": [NSNumber numberWithFloat:_currentTime],
-      @"currentDuration": [NSNumber numberWithFloat:_currentDuration]
-    }];
-    _prevProgressUpdateTime = [NSDate date];
-  }
+    if (_audioPlayer && _audioPlayer.playing) {
+        _currentTime = _audioPlayer.currentTime;
+        _currentDuration = _audioPlayer.duration;
+    }
+    
+    // If audioplayer stopped, reset current time to 0
+    if (_audioPlayer && !_audioPlayer.playing) {
+        _currentTime = 0;
+    }
+    
+    if (_prevProgressUpdateTime == nil ||
+        (([_prevProgressUpdateTime timeIntervalSinceNow] * -1000.0) >= _progressUpdateInterval)) {
+        [_bridge.eventDispatcher sendDeviceEventWithName:AudioPlayerEventProgress body:@{
+                                                                                         @"currentTime": [NSNumber numberWithFloat:_currentTime],
+                                                                                         @"currentDuration": [NSNumber numberWithFloat:_currentDuration]
+                                                                                         }];
+        _prevProgressUpdateTime = [NSDate date];
+    }
 }
 
 - (void)stopProgressTimer {
-  [_progressUpdateTimer invalidate];
+    [_progressUpdateTimer invalidate];
 }
 
 - (void)startProgressTimer {
-  _progressUpdateInterval = 250;
-  _prevProgressUpdateTime = nil;
-
-  [self stopProgressTimer];
-
-  _progressUpdateTimer = [CADisplayLink displayLinkWithTarget:self selector:@selector(sendProgressUpdate)];
-  [_progressUpdateTimer addToRunLoop:[NSRunLoop mainRunLoop] forMode:NSDefaultRunLoopMode];
+    _progressUpdateInterval = 250;
+    _prevProgressUpdateTime = nil;
+    
+    [self stopProgressTimer];
+    
+    _progressUpdateTimer = [CADisplayLink displayLinkWithTarget:self selector:@selector(sendProgressUpdate)];
+    [_progressUpdateTimer addToRunLoop:[NSRunLoop mainRunLoop] forMode:NSDefaultRunLoopMode];
 }
 
 - (void)audioPlayerDidFinishPlaying:(AVAudioPlayer *)recorder successfully:(BOOL)flag {
-
-  //Stop progress when finished...
-  if (_audioPlayer.playing) {
-    [_audioPlayer stop];
-  }
-  [self stopProgressTimer];
-  [self sendProgressUpdate];
-
-  [_bridge.eventDispatcher sendDeviceEventWithName:AudioPlayerEventFinished body:@{
-      @"finished": flag ? @"true" : @"false"
-    }];
+    
+    //Stop progress when finished...
+    if (_audioPlayer.playing) {
+        [_audioPlayer stop];
+    }
+    [self stopProgressTimer];
+    [self sendProgressUpdate];
+    
+    [_bridge.eventDispatcher sendDeviceEventWithName:AudioPlayerEventFinished body:@{
+                                                                                     @"finished": flag ? @"true" : @"false"
+                                                                                     }];
+}
+RCT_EXPORT_METHOD(prepare:(NSString *)path)
+{
 }
 
 RCT_EXPORT_METHOD(play:(NSString *)path)
 {
-  NSError *error;
-
-  NSString *resourcePath = [[NSBundle mainBundle] resourcePath];
-  NSString *audioFilePath = [resourcePath stringByAppendingPathComponent:path];
-
-  _audioFileURL = [NSURL fileURLWithPath:audioFilePath];
-
-  _audioPlayer = [[AVAudioPlayer alloc]
-    initWithContentsOfURL:_audioFileURL
-    error:&error];
-  _audioPlayer.delegate = self;
-
-  if (error) {
-    [self stopProgressTimer];
-    NSLog(@"audio playback loading error: %@", [error localizedDescription]);
-    // TODO: dispatch error over the bridge
-  } else {
-    [self startProgressTimer];
-    [_audioPlayer play];
-  }
+    NSError *error;
+    NSString *resourcePath = [[NSBundle mainBundle] resourcePath];
+    NSString *audioFilePath = [resourcePath stringByAppendingPathComponent:path];
+    for (AVAudioPlayer *player in preparedAudios) {
+        if([player.url isEqual:[NSURL fileURLWithPath:audioFilePath]]){
+            _audioPlayer = player;
+            [_audioPlayer play];
+            return;
+        }
+    }
+    _audioFileURL = [NSURL fileURLWithPath:audioFilePath];
+    
+    _audioPlayer = [[AVAudioPlayer alloc]
+                    initWithContentsOfURL:_audioFileURL
+                    error:&error];
+    _audioPlayer.delegate = self;
+    if (error) {
+        [self stopProgressTimer];
+        NSLog(@"audio playback loading error: %@", [error localizedDescription]);
+        // TODO: dispatch error over the bridge
+    } else {
+        [preparedAudios addObject:_audioPlayer];
+        [self startProgressTimer];
+        [_audioPlayer play];
+    }
 }
 
 RCT_EXPORT_METHOD(playWithUrl:(NSURL *) url)
 {
-  NSError *error;
-  NSData* data = [NSData dataWithContentsOfURL: url];
-
-  _audioPlayer = [[AVAudioPlayer alloc] initWithData:data  error:&error];
-  _audioPlayer.delegate = self;
-  if (error) {
-    [self stopProgressTimer];
-    NSLog(@"audio playback loading error: %@", [error localizedDescription]);
-    // TODO: dispatch error over the bridge
-  } else {
-    [self startProgressTimer];
-    [_audioPlayer play];
-  }
+    NSError *error;
+    NSData* data = [NSData dataWithContentsOfURL: url];
+    
+    _audioPlayer = [[AVAudioPlayer alloc] initWithData:data  error:&error];
+    _audioPlayer.delegate = self;
+    if (error) {
+        [self stopProgressTimer];
+        NSLog(@"audio playback loading error: %@", [error localizedDescription]);
+        // TODO: dispatch error over the bridge
+    } else {
+        [self startProgressTimer];
+        [_audioPlayer play];
+    }
 }
 
 RCT_EXPORT_METHOD(pause)
 {
-  if (_audioPlayer.playing) {
-    [_audioPlayer pause];
-  }
+    if (_audioPlayer.playing) {
+        [_audioPlayer pause];
+    }
 }
 
 RCT_EXPORT_METHOD(unpause)
 {
-  if (!_audioPlayer.playing) {
-    [_audioPlayer play];
-  }
+    if (!_audioPlayer.playing) {
+        [_audioPlayer play];
+    }
 }
 
 RCT_EXPORT_METHOD(stop)
 {
-  if (_audioPlayer.playing) {
-    [_audioPlayer stop];
-    [self stopProgressTimer];
-    [self sendProgressUpdate];
-  }
+    if (_audioPlayer.playing) {
+        [_audioPlayer stop];
+        [preparedAudios removeObject:_audioPlayer];
+        [self stopProgressTimer];
+        [self sendProgressUpdate];
+    }
 }
 
 RCT_EXPORT_METHOD(skipToSeconds:(float)position)
@@ -154,28 +165,28 @@ RCT_EXPORT_METHOD(skipToSeconds:(float)position)
         // Negative values skip to start of file
         if ( position<0.0f )
             position = 0.0f;
-
+        
         // Rounds down to remove sub-second precision
         position = (int)position;
-
+        
         // Prevent skipping past end of file
         if ( position>=(int)_audioPlayer.duration )
         {
             NSLog( @"Audio: IGNORING skip to <%.02f> (past EOF) of <%.02f> seconds", position, _audioPlayer.duration );
             return;
         }
-
+        
         // See if playback is active prior to skipping
         BOOL skipWhilePlaying = _audioPlayer.playing;
-
+        
         // Perform skip
         NSLog( @"Audio: skip to <%.02f> of <%.02f> seconds", position, _audioPlayer.duration );
-
+        
         // NOTE: This stop,set,prepare,(play) sequence produces reliable results on the simulator and device.
         [_audioPlayer stop];
         [_audioPlayer setCurrentTime:position];
         [_audioPlayer prepareToPlay];
-
+        
         // Resume playback if it was active prior to skipping
         if ( skipWhilePlaying )
             [_audioPlayer play];
@@ -184,9 +195,9 @@ RCT_EXPORT_METHOD(skipToSeconds:(float)position)
 
 RCT_EXPORT_METHOD(setCurrentTime:(NSTimeInterval) time)
 {
-  if (_audioPlayer.playing) {
-    [_audioPlayer setCurrentTime: time];
-  }
+    if (_audioPlayer.playing) {
+        [_audioPlayer setCurrentTime: time];
+    }
 }
 
 /*
@@ -194,25 +205,25 @@ RCT_EXPORT_METHOD(setCurrentTime:(NSTimeInterval) time)
  */
 RCT_EXPORT_METHOD(getCurrentTime:(RCTResponseSenderBlock)callback)
 {
-  NSTimeInterval currentTime = _audioPlayer.currentTime;
-  callback(@[[NSNull null], [NSNumber numberWithDouble:currentTime]]);
+    NSTimeInterval currentTime = _audioPlayer.currentTime;
+    callback(@[[NSNull null], [NSNumber numberWithDouble:currentTime]]);
 }
 
 RCT_EXPORT_METHOD(getDuration:(NSString *)path callback:(RCTResponseSenderBlock)callback)
 {
-  NSError *error;
-  
-  NSString *resourcePath = [[NSBundle mainBundle] resourcePath];
-  NSString *audioFilePath = [resourcePath stringByAppendingPathComponent:path];
-  
-  NSURL *audioFileURL = [NSURL fileURLWithPath:audioFilePath];
-  
-  AVAudioPlayer *audioPlayer = [[AVAudioPlayer alloc]
-                  initWithContentsOfURL:audioFileURL
-                  error:&error];
-  
-  NSTimeInterval duration = audioPlayer.duration;
-  callback(@[[NSNull null], [NSNumber numberWithDouble:duration]]);
+    NSError *error;
+    
+    NSString *resourcePath = [[NSBundle mainBundle] resourcePath];
+    NSString *audioFilePath = [resourcePath stringByAppendingPathComponent:path];
+    
+    NSURL *audioFileURL = [NSURL fileURLWithPath:audioFilePath];
+    
+    AVAudioPlayer *audioPlayer = [[AVAudioPlayer alloc]
+                                  initWithContentsOfURL:audioFileURL
+                                  error:&error];
+    
+    NSTimeInterval duration = audioPlayer.duration;
+    callback(@[[NSNull null], [NSNumber numberWithDouble:duration]]);
 }
 
 @end
