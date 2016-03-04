@@ -198,9 +198,20 @@ RCT_EXPORT_METHOD(getCurrentTime:(RCTResponseSenderBlock)callback)
   callback(@[[NSNull null], [NSNumber numberWithDouble:currentTime]]);
 }
 
-RCT_EXPORT_METHOD(getDuration:(RCTResponseSenderBlock)callback)
+RCT_EXPORT_METHOD(getDuration:(NSString *)path callback:(RCTResponseSenderBlock)callback)
 {
-  NSTimeInterval duration = _audioPlayer.duration;
+  NSError *error;
+  
+  NSString *resourcePath = [[NSBundle mainBundle] resourcePath];
+  NSString *audioFilePath = [resourcePath stringByAppendingPathComponent:path];
+  
+  NSURL *audioFileURL = [NSURL fileURLWithPath:audioFilePath];
+  
+  AVAudioPlayer *audioPlayer = [[AVAudioPlayer alloc]
+                  initWithContentsOfURL:audioFileURL
+                  error:&error];
+  
+  NSTimeInterval duration = audioPlayer.duration;
   callback(@[[NSNull null], [NSNumber numberWithDouble:duration]]);
 }
 
