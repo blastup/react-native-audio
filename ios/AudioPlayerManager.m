@@ -73,6 +73,7 @@ RCT_EXPORT_MODULE();
     if (_audioPlayer.playing) {
         [_audioPlayer stop];
     }
+    [preparedAudios removeObject:_audioPlayer];
     [self stopProgressTimer];
     [self sendProgressUpdate];
     
