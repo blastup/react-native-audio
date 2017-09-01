@@ -7,9 +7,9 @@
 //
 
 #import "AudioPlayerManager.h"
-#import "RCTConvert.h"
-#import "RCTBridge.h"
-#import "RCTEventDispatcher.h"
+#import <React/RCTConvert.h>
+#import <React/RCTBridgeModule.h>
+#import <React/RCTEventDispatcher.h>
 #import <AVFoundation/AVFoundation.h>
 
 NSString *const AudioPlayerEventProgress = @"playerProgress";
