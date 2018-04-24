@@ -88,6 +88,8 @@ RCT_EXPORT_METHOD(prepare:(NSString *)path)
 
 RCT_EXPORT_METHOD(initAudioManager) {
   preparedAudios = [[NSMutableArray alloc]init];
+  [[AVAudioSession sharedInstance] setCategory:AVAudioSessionCategoryPlayback error:nil];
+  [[AVAudioSession sharedInstance] setActive: YES error: nil];
 }
 
 
