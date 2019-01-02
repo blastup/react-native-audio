@@ -96,8 +96,15 @@ RCT_EXPORT_METHOD(initAudioManager) {
 RCT_EXPORT_METHOD(play:(NSString *)path)
 {
     NSError *error;
-    NSString *resourcePath = [[NSBundle mainBundle] resourcePath];
-    NSString *audioFilePath = [resourcePath stringByAppendingPathComponent:path];
+  
+    NSString *audioFilePath = path;
+    NSFileManager *fileManager = [NSFileManager defaultManager];
+    // fallback for audios not existing in documents folder like gong
+    if (![fileManager fileExistsAtPath:path]) {
+      NSString *resourcePath = [[NSBundle mainBundle] resourcePath];
+      audioFilePath = [resourcePath stringByAppendingPathComponent:[NSString stringWithFormat:@"practices/%@.mp3", path]];
+    }
+  
     for (AVAudioPlayer *player in preparedAudios) {
         if([player.url isEqual:[NSURL fileURLWithPath:audioFilePath]]){
             _audioPlayer = player;
@@ -219,12 +226,17 @@ RCT_EXPORT_METHOD(getCurrentTime:(RCTResponseSenderBlock)callback)
 RCT_EXPORT_METHOD(getDuration:(NSString *)path callback:(RCTResponseSenderBlock)callback)
 {
     NSError *error;
-    
-    NSString *resourcePath = [[NSBundle mainBundle] resourcePath];
-    NSString *audioFilePath = [resourcePath stringByAppendingPathComponent:path];
-    
+  
+    NSString *audioFilePath = path;
+    NSFileManager *fileManager = [NSFileManager defaultManager];
+    // fallback for audios not existing in documents folder like gong
+    if (![fileManager fileExistsAtPath:path]) {
+      NSString *resourcePath = [[NSBundle mainBundle] resourcePath];
+      audioFilePath = [resourcePath stringByAppendingPathComponent:[NSString stringWithFormat:@"practices/%@.mp3", path]];
+    }
+  
     NSURL *audioFileURL = [NSURL fileURLWithPath:audioFilePath];
-    
+  
     AVAudioPlayer *audioPlayer = [[AVAudioPlayer alloc]
                                   initWithContentsOfURL:audioFileURL
                                   error:&error];
